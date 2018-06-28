@@ -14,6 +14,7 @@ branches:
     - trying
     - /.+-dev$/
     - /.+-stable$/
+    - bump_ruby_2.4_in_travis
 
 notifications:
   slack:
