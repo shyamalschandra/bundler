@@ -90,19 +90,21 @@ RSpec.describe "bundle exec" do
     end
 
     if Bundler.current_ruby.ruby_2?
-      expect(out).to eq("")
+      expect(err).to eq("")
     else
-      expect(out).to eq("Ruby version #{RUBY_VERSION} defaults to keeping non-standard file descriptors on Kernel#exec.")
+      expect(err).to eq("Ruby version #{RUBY_VERSION} defaults to keeping non-standard file descriptors on Kernel#exec.")
     end
-
-    expect(err).to lack_errors
   end
 
   it "accepts --keep-file-descriptors" do
     install_gemfile ""
     bundle "exec --keep-file-descriptors echo foobar"
 
-    expect(err).to lack_errors
+    if Bundler.current_ruby.ruby_2?
+      expect(err).to eq("")
+    else
+      expect(err).to eq("Ruby version #{RUBY_VERSION} defaults to keeping non-standard file descriptors on Kernel#exec.")
+    end
   end
 
   it "can run a command named --verbose" do
@@ -570,12 +572,13 @@ RSpec.describe "bundle exec" do
       it_behaves_like "it runs"
     end
 
-    context "the executable is empty", :bundler => "< 2" do
+    context "the executable is empty" do
       let(:executable) { "" }
 
       let(:exit_code) { 0 }
-      let(:expected) { "#{path} is empty" }
-      let(:expected_err) { "" }
+      let(:expected_err) { "#{path} is empty" }
+      let(:expected) { "" }
+
       if LessThanProc.with(RUBY_VERSION).call("1.9")
         # Kernel#exec in ruby < 1.9 will raise Errno::ENOEXEC if the command content is empty,
         # even if the command is set as an executable.
@@ -585,46 +588,18 @@ RSpec.describe "bundle exec" do
       end
     end
 
-    context "the executable is empty", :bundler => "2" do
-      let(:executable) { "" }
-
-      let(:exit_code) { 0 }
-      let(:expected_err) { "#{path} is empty" }
-      let(:expected) { "" }
-      it_behaves_like "it runs"
-    end
-
-    context "the executable raises", :bundler => "< 2" do
+    context "the executable raises" do
       let(:executable) { super() << "\nraise 'ERROR'" }
       let(:exit_code) { 1 }
-      let(:expected) { super() << "\nbundler: failed to load command: #{path} (#{path})" }
       let(:expected_err) do
-        "RuntimeError: ERROR\n  #{path}:10" +
+        "bundler: failed to load command: #{path} (#{path})" \
+        "\nRuntimeError: ERROR\n  #{path}:10" +
           (Bundler.current_ruby.ruby_18? ? "" : ":in `<top (required)>'")
       end
       it_behaves_like "it runs"
     end
 
-    context "the executable raises", :bundler => "2" do
-      let(:executable) { super() << "\nraise 'ERROR'" }
-      let(:exit_code) { 1 }
-      let(:expected_err) do
-        "bundler: failed to load command: #{path} (#{path})" \
-        "\nRuntimeError: ERROR\n  #{path}:10:in `<top (required)>'"
-      end
-      it_behaves_like "it runs"
-    end
-
-    context "the executable raises an error without a backtrace", :bundler => "< 2" do
-      let(:executable) { super() << "\nclass Err < Exception\ndef backtrace; end;\nend\nraise Err" }
-      let(:exit_code) { 1 }
-      let(:expected) { super() << "\nbundler: failed to load command: #{path} (#{path})" }
-      let(:expected_err) { "Err: Err" }
-
-      it_behaves_like "it runs"
-    end
-
-    context "the executable raises an error without a backtrace", :bundler => "2" do
+    context "the executable raises an error without a backtrace" do
       let(:executable) { super() << "\nclass Err < Exception\ndef backtrace; end;\nend\nraise Err" }
       let(:exit_code) { 1 }
       let(:expected_err) { "bundler: failed to load command: #{path} (#{path})\nErr: Err" }

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe "major deprecations", :bundler => "< 2" do
-  let(:warnings) { last_command.bundler_err } # change to err in 2.0
+  let(:warnings) { last_command.stderr }
   let(:warnings_without_version_messages) { warnings.gsub(/#{Spec::Matchers::MAJOR_DEPRECATION}Bundler will only support ruby(gems)? >= .*/, "") }
 
   context "in a .99 version" do
@@ -133,12 +133,13 @@ RSpec.describe "major deprecations", :bundler => "< 2" do
 
     it "should print a Gemfile deprecation warning" do
       create_file "gems.rb"
-      install_gemfile! <<-G
+      create_file "Gemfile", <<-G
         source "file://#{gem_repo1}"
         gem "rack"
       G
-      expect(the_bundle).to include_gem "rack 1.0"
 
+      bundle :install
+      expect(the_bundle).to include_gem "rack 1.0"
       expect(warnings).to have_major_deprecation a_string_including("gems.rb and gems.locked will be preferred to Gemfile and Gemfile.lock.")
     end
 
